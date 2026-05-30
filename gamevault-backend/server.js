@@ -14,6 +14,7 @@ app.use('/api/games',       require('./routes/games'));
 app.use('/api/collection',  require('./routes/collection'));
 app.use('/api/marketplace', require('./routes/marketplace'));
 app.use('/api/reviews',     require('./routes/reviews'));
+app.use('/api/dashboard',   require('./routes/dashboard'));
 
 // ── Health check ───────────────────────────────────────────────
 app.get('/api/health', (req, res) => {

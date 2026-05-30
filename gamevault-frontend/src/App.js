@@ -6,6 +6,7 @@ import Games       from './pages/Games';
 import Collection  from './pages/Collection';
 import Marketplace from './pages/Marketplace';
 import Reviews     from './pages/Reviews';
+import Dashboard   from './pages/Dashboard';
 import Login       from './pages/Login';
 import Register    from './pages/Register';
 
@@ -19,6 +20,7 @@ export default function App() {
           <Route path="/collection"  element={<Collection />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/reviews"     element={<Reviews />} />
+          <Route path="/dashboard"   element={<Dashboard />} />
           <Route path="/login"       element={<Login />} />
           <Route path="/register"    element={<Register />} />
         </Routes>
