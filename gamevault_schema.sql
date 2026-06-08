@@ -508,3 +508,4 @@ LEFT JOIN offers               o  ON u.user_id = o.buyer_id
 LEFT JOIN reviews              r  ON u.user_id = r.user_id
 GROUP BY u.user_id, u.username, u.role
 ORDER BY games_owned DESC;
+
