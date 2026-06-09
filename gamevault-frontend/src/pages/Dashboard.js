@@ -19,7 +19,7 @@ export default function Dashboard() {
   if (loading) return <div className="loading">Loading dashboard...</div>;
   if (!data)   return null;
 
-  const { counts, activeListings, gameRatings, userCollections } = data;
+  const { counts, activeListings, gameRatings, userCollections, recentListings, recentOffers, recentSales } = data;
 
   return (
     <div className="page">
@@ -140,6 +140,101 @@ export default function Dashboard() {
                   <td style={{ color: '#22c55e', fontWeight: 600 }}>{l.best_offer ? `$${l.best_offer}` : '—'}</td>
                   <td style={{ color: '#9090a8' }}>{l.total_offers}</td>
                   <td style={{ color: '#9090a8' }}>{new Date(l.listed_at).toLocaleDateString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <h2 style={s.sectionTitle}>📌 Recent Marketplace Actions</h2>
+      <p style={s.sectionSub}>Admin provenance: who listed, who offered, who sold, who bought.</p>
+      <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 28 }}>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Listing</th>
+                <th>Game</th>
+                <th>Seller</th>
+                <th>Ask</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentListings.length === 0 ? (
+                <tr><td colSpan={5} style={{ textAlign: 'center', color: '#5a5a70' }}>No recent listings</td></tr>
+              ) : recentListings.map(r => (
+                <tr key={r.listing_id}>
+                  <td>{r.listing_id}</td>
+                  <td style={{ fontWeight: 600 }}>{r.game_title}</td>
+                  <td style={{ color: '#9090a8' }}>{r.seller}</td>
+                  <td style={{ color: '#a855f7', fontWeight: 700 }}>${r.ask_price}</td>
+                  <td style={{ color: '#9090a8' }}>{new Date(r.listed_at).toLocaleDateString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 28 }}>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Offer</th>
+                <th>Game</th>
+                <th>Seller</th>
+                <th>Buyer</th>
+                <th>Price</th>
+                <th>Status</th>
+                <th>Offered</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentOffers.length === 0 ? (
+                <tr><td colSpan={7} style={{ textAlign: 'center', color: '#5a5a70' }}>No recent offers</td></tr>
+              ) : recentOffers.map(o => (
+                <tr key={o.offer_id}>
+                  <td>{o.offer_id}</td>
+                  <td style={{ fontWeight: 600 }}>{o.game_title}</td>
+                  <td style={{ color: '#9090a8' }}>{o.seller}</td>
+                  <td style={{ color: '#22c55e' }}>{o.buyer}</td>
+                  <td style={{ color: '#a855f7', fontWeight: 700 }}>${o.offer_price}</td>
+                  <td style={{ color: '#5a5a70' }}>{o.offer_status}</td>
+                  <td style={{ color: '#9090a8' }}>{new Date(o.offered_at).toLocaleDateString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 28 }}>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Sale</th>
+                <th>Game</th>
+                <th>Seller</th>
+                <th>Buyer</th>
+                <th>Amount</th>
+                <th>Sold At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentSales.length === 0 ? (
+                <tr><td colSpan={6} style={{ textAlign: 'center', color: '#5a5a70' }}>No recent sales</td></tr>
+              ) : recentSales.map(sale => (
+                <tr key={sale.offer_id}>
+                  <td>{sale.offer_id}</td>
+                  <td style={{ fontWeight: 600 }}>{sale.game_title}</td>
+                  <td style={{ color: '#9090a8' }}>{sale.seller}</td>
+                  <td style={{ color: '#22c55e' }}>{sale.buyer}</td>
+                  <td style={{ color: '#a855f7', fontWeight: 700 }}>${sale.offer_price}</td>
+                  <td style={{ color: '#9090a8' }}>{new Date(sale.offered_at).toLocaleDateString()}</td>
                 </tr>
               ))}
             </tbody>

@@ -10,17 +10,30 @@ router.post('/register', async (req, res) => {
   if (!username || !email || !password)
     return res.status(400).json({ error: 'username, email and password are required' });
 
+  const conn = await pool.getConnection();
   try {
     const hash = await bcrypt.hash(password, 10);
-    const [result] = await pool.execute(
+    await conn.beginTransaction();
+
+    const [result] = await conn.execute(
       'INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)',
       [username, email, hash, role]
     );
+
+    await conn.execute(
+      'INSERT INTO wallets (user_id, balance) VALUES (?, 0.00)',
+      [result.insertId]
+    );
+
+    await conn.commit();
     res.status(201).json({ message: 'User registered', user_id: result.insertId });
   } catch (err) {
+    await conn.rollback();
     if (err.code === 'ER_DUP_ENTRY')
       return res.status(409).json({ error: 'Username or email already taken' });
     res.status(500).json({ error: err.message });
+  } finally {
+    conn.release();
   }
 });
 

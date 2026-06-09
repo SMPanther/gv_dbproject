@@ -30,7 +30,21 @@ CREATE TABLE users (
 );
 
 -- ============================================================
--- TABLE 2: GAMES
+-- TABLE 2: WALLETS
+-- ============================================================
+CREATE TABLE wallets (
+    wallet_id   INT           NOT NULL AUTO_INCREMENT,
+    user_id     INT           NOT NULL,
+    balance     DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    created_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_wallets      PRIMARY KEY (wallet_id),
+    CONSTRAINT uq_wallets_user UNIQUE      (user_id),
+    CONSTRAINT fk_wallet_user  FOREIGN KEY (user_id)
+        REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- ============================================================
+-- TABLE 3: GAMES
 -- ============================================================
 CREATE TABLE games (
     game_id      INT            NOT NULL AUTO_INCREMENT,
@@ -96,7 +110,32 @@ CREATE TABLE offers (
 );
 
 -- ============================================================
--- TABLE 6: REVIEWS
+-- TABLE 6: WALLET_TRANSACTIONS
+-- ============================================================
+CREATE TABLE wallet_transactions (
+    transaction_id     INT            NOT NULL AUTO_INCREMENT,
+    wallet_id          INT            NOT NULL,
+    transaction_type   ENUM('deposit','withdrawal','hold','release','sale_credit','refund') NOT NULL,
+    amount             DECIMAL(12,2)  NOT NULL CHECK (amount > 0),
+    balance_after      DECIMAL(12,2)  NOT NULL,
+    related_offer_id   INT            NULL,
+    related_listing_id INT            NULL,
+    note               VARCHAR(255),
+    created_at         TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_wallet_transactions PRIMARY KEY (transaction_id),
+    CONSTRAINT fk_wt_wallet           FOREIGN KEY (wallet_id)
+        REFERENCES wallets(wallet_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_wt_offer            FOREIGN KEY (related_offer_id)
+        REFERENCES offers(offer_id) ON DELETE SET NULL,
+    CONSTRAINT fk_wt_listing          FOREIGN KEY (related_listing_id)
+        REFERENCES marketplace_listings(listing_id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_wallet_user ON wallets(user_id);
+CREATE INDEX idx_wt_wallet ON wallet_transactions(wallet_id);
+
+-- ============================================================
+-- TABLE 7: REVIEWS
 -- ============================================================
 CREATE TABLE reviews (
     review_id  INT       NOT NULL AUTO_INCREMENT,
@@ -129,10 +168,16 @@ CREATE INDEX idx_rev_game        ON reviews(game_id);
 -- ============================================================
 
 INSERT INTO users (username, email, password_hash, role) VALUES
-('umer01',    'umer@example.com',    SHA2('pass1234',256), 'seller'),
-('ali_gamer', 'ali@example.com',     SHA2('ali5678',256),  'buyer'),
-('sara_dev',  'sara@example.com',    SHA2('sara9999',256), 'buyer'),
-('admin_gv',  'admin@gamevault.com', SHA2('admin000',256), 'admin');
+('umer01',    'umer@example.com',    'pass1234', 'seller'),
+('ali_gamer', 'ali@example.com',     'ali5678',  'buyer'),
+('sara_dev',  'sara@example.com',    'sara9999', 'buyer'),
+('admin_gv',  'admin@gamevault.com', 'admin000', 'admin');
+
+INSERT INTO wallets (user_id, balance) VALUES
+(1, 100.00),
+(2, 80.00),
+(3, 60.00),
+(4, 250.00);
 
 INSERT INTO games (title, genre, price, platform, developer, release_date) VALUES
 ('Kena: Bridge of Spirits',  'Action-Adventure', 39.99, 'PC',   'Ember Lab',       '2021-09-21'),
@@ -364,17 +409,20 @@ START TRANSACTION;
     SET offer_status = 'accepted'
     WHERE offer_id = 1;
 
-    -- Step 2: Reject all other pending offers on the same listing
+    -- Step 2: Save the listing ID before updating the offers table again
+    SET @listing_id = (SELECT listing_id FROM offers WHERE offer_id = 1);
+
+    -- Step 3: Reject all other pending offers on the same listing
     UPDATE offers
     SET offer_status = 'rejected'
-    WHERE listing_id = (SELECT listing_id FROM offers WHERE offer_id = 1)
+    WHERE listing_id = @listing_id
       AND offer_id != 1
       AND offer_status = 'pending';
 
-    -- Step 3: Mark the listing as sold
+    -- Step 4: Mark the listing as sold
     UPDATE marketplace_listings
     SET listing_status = 'sold'
-    WHERE listing_id = (SELECT listing_id FROM offers WHERE offer_id = 1);
+    WHERE listing_id = @listing_id;
 
 COMMIT;
 

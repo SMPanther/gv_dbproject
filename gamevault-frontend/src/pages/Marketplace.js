@@ -7,6 +7,9 @@ export default function Marketplace() {
   const [myListings, setMyListings] = useState([]);
   const [myOffers, setMyOffers]     = useState([]);
   const [games, setGames]           = useState([]);
+  const [userCollection, setUserCollection] = useState([]);
+  const [walletBalance, setWalletBalance] = useState(null);
+  const [depositAmount, setDepositAmount] = useState('');
   const [loading, setLoading]       = useState(true);
   const [tab, setTab]               = useState('browse');
   const [showForm, setShowForm]     = useState(false);
@@ -22,17 +25,29 @@ export default function Marketplace() {
 
   const loadAll = async () => {
     try {
-      const [l, g] = await Promise.all([api.get('/marketplace'), api.get('/games')]);
-      setListings(l.data); setGames(g.data);
+      const [marketRes, gamesRes] = await Promise.all([api.get('/marketplace'), api.get('/games')]);
+      const activeListings = marketRes.data || [];
+      setListings(isLoggedIn ? activeListings.filter(l => l.seller !== user?.username) : activeListings);
+      setGames(gamesRes.data || []);
+
       if (isLoggedIn) {
-        const [ml, mo] = await Promise.all([
+        const [ml, mo, walletRes, collRes] = await Promise.all([
           api.get('/marketplace/my/listings'),
           api.get('/marketplace/my/offers'),
+          api.get('/wallet'),
+          api.get('/collection'),
         ]);
         setMyListings(ml.data);
         setMyOffers(mo.data);
+        setWalletBalance(Number(walletRes.data.balance));
+        setUserCollection(collRes.data || []);
+      } else {
+        setWalletBalance(null);
+        setUserCollection([]);
       }
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+    }
     setLoading(false);
   };
 
@@ -55,6 +70,22 @@ export default function Marketplace() {
       flash('Listing cancelled');
       loadAll();
     } catch (err) { flash(err.response?.data?.error || 'Error', 'err'); }
+  };
+
+  const depositFunds = async e => {
+    e.preventDefault();
+    try {
+      const amount = parseFloat(depositAmount);
+      if (Number.isNaN(amount) || amount <= 0) {
+        return flash('Enter a positive deposit amount', 'err');
+      }
+      const res = await api.post('/wallet/deposit', { amount });
+      setWalletBalance(Number(res.data.balance));
+      flash('Deposit successful!');
+      setDepositAmount('');
+    } catch (err) {
+      flash(err.response?.data?.error || 'Deposit failed', 'err');
+    }
   };
 
   const makeOffer = async e => {
@@ -87,6 +118,10 @@ export default function Marketplace() {
 
   const TABS = ['browse', ...(isLoggedIn ? ['my listings', 'my offers'] : [])];
 
+  const walletBalanceDisplay = Number.isFinite(Number(walletBalance))
+    ? Number(walletBalance).toFixed(2)
+    : '...';
+
   if (loading) return <div className="loading">Loading marketplace...</div>;
 
   return (
@@ -103,6 +138,29 @@ export default function Marketplace() {
         )}
       </div>
 
+      {isLoggedIn && (
+        <div className="card" style={{ marginBottom: 24, maxWidth: 480, borderColor: 'rgba(37,99,235,.2)' }}>
+          <h3 style={{ marginBottom: 12, fontSize: 16 }}>Wallet</h3>
+          <p style={{ marginBottom: 16, color: '#a855f7', fontSize: 18, fontWeight: 700 }}>
+            Balance: ${walletBalanceDisplay}
+          </p>
+          <form onSubmit={depositFunds} style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <input
+              className="form-input"
+              type="number"
+              step="0.01"
+              min="0.01"
+              placeholder="Deposit amount"
+              value={depositAmount}
+              onChange={e => setDepositAmount(e.target.value)}
+              style={{ flex: '1 1 180px' }}
+              required
+            />
+            <button type="submit" className="btn btn-secondary btn-sm">Deposit</button>
+          </form>
+        </div>
+      )}
+
       {/* Flash message */}
       {msg.text && (
         <p style={{ ...s.toast, background: msg.type === 'err' ? 'rgba(239,68,68,.15)' : 'rgba(124,58,237,.15)', borderColor: msg.type === 'err' ? 'rgba(239,68,68,.3)' : 'rgba(124,58,237,.3)', color: msg.type === 'err' ? '#ef4444' : '#a855f7' }}>
@@ -117,11 +175,19 @@ export default function Marketplace() {
           <form onSubmit={createListing}>
             <div className="form-group">
               <label>Game</label>
-              <select className="form-input" value={newListing.game_id}
-                onChange={e => setNewListing({ ...newListing, game_id: e.target.value })} required>
-                <option value="">Select a game</option>
-                {games.map(g => <option key={g.game_id} value={g.game_id}>{g.title} ({g.platform})</option>)}
-              </select>
+              {userCollection.length === 0 ? (
+                <div style={{ color: '#ef4444' }}>
+                  You have no sellable games in your collection. Add games to your <a href="/collection">Collection</a> first.
+                </div>
+              ) : (
+                <select className="form-input" value={newListing.game_id}
+                  onChange={e => setNewListing({ ...newListing, game_id: e.target.value })} required>
+                  <option value="">Select a game from your collection</option>
+                  {userCollection.filter(c => c.status === 'active').map(g => (
+                    <option key={g.game_id} value={g.game_id}>{g.title} ({g.platform})</option>
+                  ))}
+                </select>
+              )}
             </div>
             <div className="form-group">
               <label>Ask Price ($)</label>
@@ -129,7 +195,7 @@ export default function Marketplace() {
                 placeholder="e.g. 29.99" value={newListing.ask_price}
                 onChange={e => setNewListing({ ...newListing, ask_price: e.target.value })} required />
             </div>
-            <button type="submit" className="btn btn-primary">Create Listing</button>
+            <button type="submit" className="btn btn-primary" disabled={userCollection.length === 0}>Create Listing</button>
           </form>
         </div>
       )}
@@ -316,7 +382,10 @@ export default function Marketplace() {
               Your asking price: ${offersPanel.ask_price} · {panelOffers.length} offer(s)
             </p>
             {panelOffers.length === 0 ? (
-              <p style={{ color: '#9090a8' }}>No offers yet</p>
+              <div style={{ color: '#9090a8' }}>
+                <p>No offers yet for this listing.</p>
+                <p style={{ marginTop: 6 }}>Tip: buyers must deposit funds into their Wallet before placing offers — share your listing to attract buyers.</p>
+              </div>
             ) : (
               <div className="table-wrap">
                 <table>
